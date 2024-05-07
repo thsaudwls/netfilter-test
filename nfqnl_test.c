@@ -1,11 +1,12 @@
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <linux/types.h>
 #include <linux/netfilter.h>		/* for NF_ACCEPT */
 #include <errno.h>
+#include <string.h>
 
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
@@ -39,11 +40,12 @@ int check_host(unsigned char* buf)
 			printf("\n");
 		}
 	}
-	
+
 	if (check == host_len)
 		return 1;
 	else
 		return 0;
+
 }
 
 /* returns packet id */
@@ -103,39 +105,33 @@ static uint32_t print_pkt (struct nfq_data *tb)
 		printf("secctx=\"%.*s\" ", ret, secdata);
 
 	ret = nfq_get_payload(tb, &data);
-
 	if (ret >= 0)
-	{
-		if (check_host(data))
-		{
-			printf("Host Detected id = %d\n\n", id);
-			dump(data, ret);
-
-			return id;
-		}
-		else
-		{
-			printf("Host Not Detected id = %d\n\n", id);
-			dump(data, ret);
-			return (0);
-		}
 		printf("payload_len=%d ", ret);
+
+	if(check_host(data))
+	{
+		printf("Host Detected id = %d\n\n", id);
+		dump(data, ret);
+
+		return 4294967295;
 	}
+	else
+		return id;
 
 	fputc('\n', stdout);
 
 	return id;
 }
 	
+
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 	      struct nfq_data *nfa, void *data)
 {
 	uint32_t id = print_pkt(nfa);
 	printf("entering callback\n");
-	// if (id != 0)
-		return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL); 
-	// else
-		// return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+	if (id == 4294967295)
+		return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
 int main(int argc, char **argv)
